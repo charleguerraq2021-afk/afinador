@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Afinador</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+
+<h1>Afinador de guitarra</h1>
+<button id="start">Iniciar micrófono</button>
+
+<p id="frecuencia">Frecuencia: --- Hz</p>
+
+<script>
+document.getElementById("start").addEventListener("click", async () => {
+
+  try {
+    // PEDIR MICRÓFONO (Android bloquearía si falla)
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const fuente = audioContext.createMediaStreamSource(stream);
+
+    const analizador = audioContext.createAnalyser();
+    analizador.fftSize = 2048;
+
+    fuente.connect(analizador);
+
+    const datos = new Float32Array(analizador.fftSize);
+
+    function detectarFrecuencia() {
+      analizador.getFloatTimeDomainData(datos);
+
+      const f = autoCorrelacion(datos, audioContext.sampleRate);
+
+      // MOSTRAR VALOR AUNQUE SEA BAJO
+      if (f > 20 && f < 2000) {
+        document.getElementById("frecuencia").innerText =
+          "Frecuencia: " + f.toFixed(2) + " Hz";
+      }
+
+      requestAnimationFrame(detectarFrecuencia);
+    }
+
+    detectarFrecuencia();
+
+  } catch (error) {
+    alert("Android bloqueó el micrófono o no tiene permisos.");
+  }
+
+});
+
+function autoCorrelacion(buffer, sampleRate) {
+  let SIZE = buffer.length;
+  let MAX_SAMPLES = Math.floor(SIZE / 2);
+  let bestOffset = -1;
+  let bestCorrelation = 0;
+  let rms = 0;
+
+  for (let i = 0; i < SIZE; i++) {
+    let val = buffer[i];
+    rms += val * val;
+  }
+  rms = Math.sqrt(rms / SIZE);
+  if (rms < 0.01) return -1;
+
+  let lastCorrelation = 1;
+
+  for (let offset = 0; offset < MAX_SAMPLES; offset++) {
+    let correlation = 0;
+
+    for (let i = 0; i < MAX_SAMPLES; i++) {
+      correlation += buffer[i] * buffer[i + offset];
+    }
+
+    if (correlation > lastCorrelation) {
+      bestCorrelation = correlation;
+      bestOffset = offset;
+    }
+    lastCorrelation = correlation;
+  }
+
+  if (bestOffset > -1) {
+    return sampleRate / bestOffset;
+  }
+
+  return -1;
+}
+</script>
+
+</body>
+</html>
