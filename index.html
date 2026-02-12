@@ -38,6 +38,8 @@ document.getElementById("start").addEventListener("click", async () => {
 
     function detectarFrecuencia() {
       analizador.getFloatTimeDomainData(datos);
+      console.log(datos[0]);
+
 
       const resultado = autoCorrelacion(datos, audioContext.sampleRate);
 
@@ -113,3 +115,4 @@ return {
 
 </body>
 </html>
+
